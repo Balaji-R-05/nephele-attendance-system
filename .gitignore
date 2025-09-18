@@ -1,0 +1,5 @@
+venv
+attendance.db
+react.*
+misc
+__pycache__/
