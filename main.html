@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Robot QR Scanner</title>
+  <style>
+    body {
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      font-family: 'Orbitron', sans-serif;
+      color: #00ffea;
+    }
+
+    .robot {
+      width: 300px;
+      height: 180px;
+      background: #111;
+      border-radius: 40px;
+      position: relative;
+      box-shadow: 0 0 20px #00ffea inset, 0 0 30px #00ffea;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .eye {
+      width: 60px;
+      height: 30px;
+      background: #00ffea;
+      border-radius: 50%;
+      animation: blink 4s infinite, float 3s ease-in-out infinite;
+      box-shadow: 0 0 15px #00ffea;
+    }
+
+    .eye.right {
+      width: 70px;
+      height: 40px;
+      border-radius: 60% 60% 40% 40%;
+    }
+
+    @keyframes blink {
+      0%, 90%, 100% { transform: scaleY(1); }
+      95% { transform: scaleY(0.1); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 20px;
+      text-shadow: 0 0 8px #00ffea;
+    }
+
+    video, canvas { display: none; } /* hide camera feed */
+  </style>
+</head>
+<body>
+  <div class="robot">
+    <div class="eye left"></div>
+    <div class="eye right"></div>
+  </div>
+
+  <div id="status">🤖 Initializing Scanner...</div>
+
+  <video id="video" autoplay></video>
+  <canvas id="canvas"></canvas>
+
+  <!-- jsQR library -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const statusDiv = document.getElementById('status');
+    const context = canvas.getContext("2d");
+
+    let lastDetected = ""; // prevent duplicate calls
+    let lastScanTime = 0;
+    const SCAN_INTERVAL = 500; // ms between scans
+    let cooldown = false;
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-IN";
+      utterance.rate = 1;
+      speechSynthesis.speak(utterance);
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        video.srcObject = stream;
+        statusDiv.innerText = "🤖 Scanner Ready - Show QR";
+        requestAnimationFrame(scanFrame);
+      })
+      .catch(err => {
+        statusDiv.innerText = "Camera access denied!";
+        speak("Camera access denied");
+      });
+
+    function scanFrame(timestamp) {
+      if (video.readyState === video.HAVE_ENOUGH_DATA && !cooldown) {
+        if (timestamp - lastScanTime > SCAN_INTERVAL) {
+          lastScanTime = timestamp;
+
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+          if (code) {
+            if (code.data !== lastDetected) {
+              lastDetected = code.data;
+              statusDiv.innerText = "📡 QR Detected: Sending...";
+              sendToServer(code.data);
+
+              // Start cooldown (3 seconds) to avoid repeated scans
+              cooldown = true;
+              setTimeout(() => { cooldown = false; }, 3000);
+            }
+          } else {
+            statusDiv.innerText = "🔍 Scanning...";
+          }
+        }
+      }
+      requestAnimationFrame(scanFrame);
+    }
+
+    async function sendToServer(qrData) {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/mark-attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ qr_data: qrData }) // send as JSON
+        });
+
+        const result = await response.json();
+        const msg = result.status;
+
+        if (msg === "success") {
+          statusDiv.innerText = "✅ Attendance Marked!";
+          speak("Attendance marked successfully");
+        } else if (msg === "marked") {
+          statusDiv.innerText = "⚠️ Already Marked Today!";
+          speak("You have already marked attendance today");
+        } else {
+          statusDiv.innerText = "❌ Error: " + msg;
+          speak("Error marking attendance");
+        }
+      } catch (err) {
+        statusDiv.innerText = "❌ Server Error";
+        speak("Error connecting to server");
+        // redirect after 2s
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 2000);
+      }
+    }
+  </script>
+</body>
+</html>

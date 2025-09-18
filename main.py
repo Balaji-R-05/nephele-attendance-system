@@ -1,20 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import date
+from pydantic import BaseModel
 import sqlite3
-import cv2
-import numpy as np
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from datetime import date
+from contextlib import asynccontextmanager
 
 DB_NAME = "attendance.db"
 
@@ -24,12 +14,12 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS attendance (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        roll_no TEXT NOT NULL,
-        name TEXT NOT NULL,
-        reg_no TEXT NOT NULL,
-        dept TEXT NOT NULL,
+        roll_no TEXT,
+        name TEXT,
+        reg_no TEXT,
+        dept TEXT,
         extra_info TEXT,
-        date DATE NOT NULL,
+        date TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(roll_no, date)
     )
@@ -37,29 +27,30 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_db()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🚀 Starting up... Initializing DB")
+    init_db()
+    yield
+    print("🛑 Shutting down... Cleanup here if needed")
 
-def extract_qr_from_image(image_bytes):
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+app = FastAPI(lifespan=lifespan)
 
-    detector = cv2.QRCodeDetector()
-    data, points, _ = detector.detectAndDecode(img)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    if not data:
-        return None
-    return data
+class QRData(BaseModel):
+    qr_data: str
 
 @app.post("/mark-attendance")
-async def mark_attendance(file: UploadFile = File(...)):
-    image_bytes = await file.read()
-
-    qr_data = extract_qr_from_image(image_bytes)
-    if not qr_data:
-        return JSONResponse(content={"status": "qr not found"}, status_code=400)
-
+async def mark_attendance(data: QRData):
     try:
-        roll_no, name, reg_no, dept, extra_info = qr_data.split(",", 4)
+        roll_no, name, reg_no, dept, extra_info = data.qr_data.split(",", 4)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid QR format")
 
@@ -78,3 +69,7 @@ async def mark_attendance(file: UploadFile = File(...)):
 
     conn.close()
     return {"status": "success"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
