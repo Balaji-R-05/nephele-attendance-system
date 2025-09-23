@@ -3,7 +3,7 @@
 This project is a **QR Code-based attendance system** with a minimal HTML frontend and a FastAPI + SQLite backend.  
 The frontend scans QR codes in real-time using the device camera and `jsQR`, then sends the data to the backend to mark attendance.
 
----
+<img src="demo.png">
 
 ## ⚙️ Features
 - 🎥 **Camera-based QR Scanner** (using `jsQR`)
