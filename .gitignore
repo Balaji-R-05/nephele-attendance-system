@@ -3,3 +3,4 @@ attendance.db
 react.*
 misc
 __pycache__/
+.env
