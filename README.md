@@ -1,6 +1,6 @@
-# 🤖 NEPHELE 3.0: Cloud-Powered Robot Attendance System
+# QR Attendance System (Test for Nephele 3.0)
 
-Nephele 3.0 is a modern, **QR Code-based attendance system** specifically designed to test attendance tracking for **cloud-powered robots**. It features a "Robot Face" UI, real-time QR scanning, audio feedback, and a dedicated admin dashboard for record management.
+This project was developed to **test a QR Code-based attendance system** for **Nephele 3.0**, a cloud-powered robot. It features a "Robot Face" UI, real-time QR scanning, audio feedback, and a dedicated admin dashboard for record management.
 
   <img src="imgs/robot_scanner.png" alt="Robot Scanner UI">
   <img src="imgs/admin_dashboard.png" alt="Admin Dashboard">

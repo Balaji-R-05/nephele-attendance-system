@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
     if config.DEBUG:
         print("🛑 Shutting down...")
 
-app = FastAPI(lifespan=lifespan, title="Nephele Attendance System")
+app = FastAPI(lifespan=lifespan, title="QR Attendance System (Nephele 3.0 Test)")
 
 app.add_middleware(
     CORSMiddleware,
